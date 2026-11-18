@@ -6,7 +6,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from . import automation, excel, install_check, risks
+from . import automation, bowtie, excel, install_check, risks
 from .automation import ApuriskError
 
 mcp = FastMCP(
@@ -139,6 +139,145 @@ def apurisk_set_risk_status(risk_id: str, to_status: str, reason: str | None = N
     """Cambia el estado de un riesgo (por ejemplo draft → identified). ApuRisk valida si la transición es posible y por qué no."""
     _, run, scope = _context(instance)
     return risks.summarize(risks.transition(run, scope, risk_id, to_status, reason))
+
+
+@mcp.tool()
+def apurisk_select_risk(risk_id: str, show: str | None = None, instance: int | None = None) -> str:
+    """Abre el Registro de riesgos en Excel y deja SELECCIONADO el riesgo, para que la persona lo vea en pantalla.
+
+    show: vacío (solo seleccionarlo), «bowtie» (abre además su BowTie) o «evaluate» (abre además su Evaluación).
+    """
+    _, run, scope = _context(instance)
+    risks.get_risk(run, scope, risk_id)  # falla con claridad si el riesgo no existe
+    payload: dict[str, Any] = {"workbookScopeId": scope, "riskId": risk_id}
+    if show:
+        payload["tool"] = show
+    automation.bridge(run, "riskRegister.openRisk", payload)
+    return f"{risk_id} seleccionado en el Registro" + (f" ({show})" if show else "")
+
+
+@mcp.tool()
+def apurisk_refresh_windows(instance: int | None = None) -> list[str]:
+    """Pide a las ventanas abiertas de ApuRisk (Registro, BowTie, Matriz...) que vuelvan a leer el libro. Las herramientas que cambian datos ya lo hacen solas; úsalo si la persona editó Excel a mano."""
+    return automation.refresh_windows(excel.runner(excel.select_app(instance)))
+
+
+@mcp.tool()
+def apurisk_windows(instance: int | None = None) -> list[str]:
+    """Ventanas de ApuRisk abiertas ahora mismo («registro», «matriz», «capex»...)."""
+    return automation.open_windows(excel.runner(excel.select_app(instance)))
+
+
+@mcp.tool()
+def apurisk_bowtie_get(risk_id: str, instance: int | None = None) -> dict[str, Any]:
+    """El BowTie de un riesgo (peligro, evento tope, causas, consecuencias y barreras) o un aviso si todavía no tiene."""
+    _, run, scope = _context(instance)
+    diagram = bowtie.load(run, scope, risk_id)
+    return bowtie.summarize(diagram) if diagram else {"riskId": risk_id, "bowTie": None, "message": "Este riesgo todavía no tiene BowTie."}
+
+
+@mcp.tool()
+def apurisk_bowtie_edit(
+    risk_id: str,
+    hazard_name: str | None = None,
+    hazard_description: str | None = None,
+    top_event: str | None = None,
+    threats: list[dict[str, Any]] | None = None,
+    consequences: list[dict[str, Any]] | None = None,
+    barriers: list[dict[str, Any]] | None = None,
+    show: bool = True,
+    instance: int | None = None,
+) -> dict[str, Any]:
+    """Agrega o cambia cosas en el BowTie de un riesgo (lo crea si no existe) y lo muestra en Excel.
+
+    Solo AGREGA causas/consecuencias/barreras y cambia peligro y evento tope; no borra ni reordena.
+    - threats / consequences: lista de {name, description?, probability_pct? (0-100), barriers?: [{name, description?, owner_id?}]}
+    - barriers (sobre ramas que ya existen o se agregan en esta llamada): lista de {side: "threat"|"consequence", branch: nombre o Id, name, description?, owner_id?}
+    show=true abre el BowTie de ese riesgo en la ventana de Excel; si ya estaba abierto, se actualiza solo.
+    """
+    _, run, scope = _context(instance)
+    risks.get_risk(run, scope, risk_id)
+    result = bowtie.edit(run, scope, risk_id, hazard_name=hazard_name, hazard_description=hazard_description, top_event=top_event,
+                         threats=threats, consequences=consequences, barriers=barriers)
+    if show:
+        automation.bridge(run, "riskRegister.openRisk", {"workbookScopeId": scope, "riskId": risk_id, "tool": "bowtie"})
+    return result
+
+
+def _matrix(run: automation.Runner, commands: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """Abre (o trae al frente) la Matriz de riesgos del libro activo y le envía los comandos; esperan a que la página termine de cargar."""
+    automation.run_ribbon(run, "VerHeatMap")
+    for command, payload in commands:
+        automation.ui_command(run, "matriz", command, payload)
+    return {"window": "matriz", "applied": [command for command, _ in commands]}
+
+
+@mcp.tool()
+def apurisk_matrix_view(
+    profile: str | None = None,
+    scenario: str | None = None,
+    perspective: str | None = None,
+    search: str | None = None,
+    show_outside: bool | None = None,
+    show_outdated: bool | None = None,
+    show_drafts: bool | None = None,
+    sort_by: str | None = None,
+    sort_direction: str | None = None,
+    clear_filters: bool = False,
+    instance: int | None = None,
+) -> dict[str, Any]:
+    """Abre la Matriz de riesgos y cambia lo que muestra, como si se pulsaran sus botones.
+
+    profile: «Threats» (amenazas) u «Opportunities» (oportunidades). scenario/perspective: nombre o id (por ejemplo «Residual», «Inherente»).
+    search: texto del buscador. show_outside / show_outdated / show_drafts: activa o desactiva los filtros rápidos (fuera de tolerancia,
+    desactualizadas, borradores). sort_by: top, priority, id, name, probability, impact, category, review o validity; sort_direction: asc o desc.
+    clear_filters=true restablece los filtros antes de aplicar lo demás.
+    """
+    run = excel.runner(excel.select_app(instance))
+    commands: list[tuple[str, dict[str, Any]]] = []
+    if clear_filters:
+        commands.append(("clearFilters", {}))
+    if profile:
+        commands.append(("setProfile", {"profile": profile}))
+    if scenario:
+        commands.append(("setScenario", {"scenario": scenario}))
+    if perspective:
+        commands.append(("setPerspective", {"perspective": perspective}))
+    for key, value in (("outside", show_outside), ("outdated", show_outdated), ("draft", show_drafts)):
+        if value is not None:
+            commands.append(("setFilter", {"key": key, "on": value}))
+    if search is not None:
+        commands.append(("search", {"text": search}))
+    if sort_by:
+        commands.append(("sortBy", {"key": sort_by, "direction": sort_direction}))
+    return _matrix(run, commands)
+
+
+@mcp.tool()
+def apurisk_matrix_select(
+    risk_id: str | None = None,
+    probability: int | None = None,
+    impact: int | None = None,
+    clear: bool = False,
+    open_evaluation: bool = False,
+    instance: int | None = None,
+) -> dict[str, Any]:
+    """En la Matriz de riesgos: selecciona un riesgo (risk_id) o una celda (probability e impact, como números de la escala), o quita la selección (clear=true). Con open_evaluation=true abre además la Evaluación de ese riesgo."""
+    run = excel.runner(excel.select_app(instance))
+    commands: list[tuple[str, dict[str, Any]]] = []
+    if clear:
+        commands += [("selectCell", {"probabilityScore": None, "impactLevel": None}), ("selectRisk", {"riskId": None})]
+    if probability is not None and impact is not None:
+        commands.append(("selectCell", {"probabilityScore": probability, "impactLevel": impact}))
+    elif probability is not None or impact is not None:
+        raise ApuriskError("invalid_field", "Para seleccionar una celda indica probability e impact.")
+    if risk_id:
+        commands.append(("selectRisk", {"riskId": risk_id}))
+        if open_evaluation:
+            commands.append(("openEvaluation", {"riskId": risk_id}))
+    if not commands:
+        raise ApuriskError("invalid_field", "Indica risk_id, probability e impact, o clear=true.")
+    return _matrix(run, commands)
 
 
 @mcp.tool()

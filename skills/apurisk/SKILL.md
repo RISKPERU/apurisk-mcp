@@ -29,6 +29,24 @@ Redacta bien el riesgo: *causa → evento → consecuencia* («Debido a… puede
 - **Campos editables**: `RiskName, RiskType, Cause, Event, Consequence, Category, SourceType, SourceDetail, IdentifiedDate (AAAA-MM-DD), ExposureStart, ExposureEnd, WbsId, RbsId, RiskOwnerId`. Todo es texto.
 - **Calculados (solo lectura)**: todo lo que empieza por `Current.` (nivel de matriz, apetito, estado de evaluación), validación, auditoría. Los produce la evaluación, no se editan.
 
+## Que la persona lo vea en pantalla
+
+Lo que cambias por las herramientas queda en el libro, pero la persona trabaja en las ventanas de ApuRisk. Para que lo vea:
+
+- `apurisk_select_risk(risk_id)` abre el Registro y deja **seleccionado** ese riesgo; con `show="bowtie"` o `"evaluate"` abre además su BowTie o su Evaluación.
+- **Las ventanas abiertas se actualizan solas** cuando una herramienta cambia datos (Registro, BowTie, Matriz): no hace falta pedir nada. Si la persona editó Excel a mano y no lo ve, `apurisk_refresh_windows` las hace releer. `apurisk_windows` dice cuáles están abiertas.
+- Si la persona está editando en la ventana (cambios sin guardar), esa ventana no pisa lo que escribe; lo tuyo aparece cuando termina de guardar y la ventana vuelve a primer plano.
+
+## BowTie
+
+`apurisk_bowtie_get(risk_id)` lee el BowTie del riesgo (peligro, evento tope, causas/amenazas, consecuencias y barreras). `apurisk_bowtie_edit` lo crea si no existe y **agrega**: causas, consecuencias, barreras (preventivas en las causas, mitigantes en las consecuencias) y cambia peligro o evento tope. No borra ni reordena. Las probabilidades de ruta se piden en % (0-100) y son supuestos causales, no el nivel del riesgo. Por defecto abre el BowTie en pantalla (`show=true`).
+
+Las barreras nuevas quedan «Proposed» (propuestas); documentarlas, asignar responsables y evaluarlas lo hace la persona.
+
+## Matriz de riesgos (mapa de calor)
+
+`apurisk_matrix_view` abre la Matriz y cambia lo que muestra como si pulsara sus botones: perfil (amenazas/oportunidades), escenario (Inherente/Vigente/Residual), perspectiva, buscador, los tres filtros rápidos (fuera de tolerancia, desactualizadas, borradores) y el orden. `apurisk_matrix_select` selecciona un riesgo o una celda (probabilidad × impacto) y puede abrir su Evaluación. La Matriz es de consulta: no cambia datos.
+
 ## Abrir ventanas de la cinta
 
 `apurisk_list_windows` lista lo disponible y `apurisk_open_window(name)` lo abre en Excel (por ejemplo `RegistroRiesgos`, `BowTie`, `VerHeatMap`, `Simular`, `Dashboard`, `Wbs`, `Rbs`). Abrir una ventana la deja en pantalla para la persona; no devuelve datos.

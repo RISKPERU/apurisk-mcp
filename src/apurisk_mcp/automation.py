@@ -79,3 +79,18 @@ def ribbon_commands(run: Runner) -> list[str]:
 
 def run_ribbon(run: Runner, name: str) -> str:
     return call(run, {"op": "ribbon.run", "name": name})["opened"]
+
+
+def open_windows(run: Runner) -> list[str]:
+    """Ventanas de ApuRisk abiertas ahora («registro», «matriz», «capex»...)."""
+    return list(call(run, {"op": "ui.windows"})["windows"])
+
+
+def refresh_windows(run: Runner) -> list[str]:
+    """Pide a todas las ventanas abiertas que vuelvan a leer el libro (Registro, BowTie, Matriz...)."""
+    return list(call(run, {"op": "ui.refresh"})["windows"])
+
+
+def ui_command(run: Runner, window: str, command: str, payload: dict[str, Any] | None = None) -> int:
+    """Envía un comando de interfaz a una ventana abierta (la Matriz de riesgos, por ejemplo). Devuelve a cuántas ventanas llegó."""
+    return int(call(run, {"op": "ui.command", "window": window, "command": command, "payload": payload or {}})["delivered"])

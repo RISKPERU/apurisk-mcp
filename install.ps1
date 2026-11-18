@@ -53,12 +53,15 @@ try {
     Step 'Creando el entorno de Python e instalando dependencias (puede tardar un minuto)'
     $venv = Join-Path $InstallRoot '.venv'
     $pythonArgs = @($python | Select-Object -Skip 1)
-    & $python[0] @pythonArgs -m venv $venv
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear el entorno de Python.' }
     $venvPython = Join-Path $venv 'Scripts\python.exe'
-    & $venvPython -m pip install --quiet --upgrade pip
-    & $venvPython -m pip install --quiet $app
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar las dependencias (revisa la conexion a internet).' }
+    # Al actualizar se reutiliza el entorno: si Claude Code tiene el servidor en marcha, Windows no deja recrear python.exe.
+    if (-not (Test-Path $venvPython)) {
+        & $python[0] @pythonArgs -m venv $venv
+        if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear el entorno de Python.' }
+        & $venvPython -m pip install --quiet --upgrade pip
+    }
+    & $venvPython -m pip install --quiet --upgrade $app
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo instalar el servidor. Si Claude Code esta abierto, cierralo y vuelve a ejecutar el instalador (revisa tambien la conexion a internet).' }
     $server = Join-Path $venv 'Scripts\apurisk-mcp.exe'
     if (-not (Test-Path $server)) { throw 'La instalacion no genero apurisk-mcp.exe.' }
 

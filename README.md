@@ -60,6 +60,10 @@ Copy-Item -Recurse skills\apurisk "$env:USERPROFILE\.claude\skills\apurisk"
 | `apurisk_create_register` | Crear las tablas del Registro en el libro activo. |
 | `apurisk_list_risks`, `apurisk_get_risk` | Consultar el Registro. |
 | `apurisk_create_risk`, `apurisk_update_risk`, `apurisk_set_risk_status` | Registrar y cambiar riesgos (siempre en borrador salvo que se pida publicar). |
+| `apurisk_select_risk` | Abrir el Registro con un riesgo seleccionado (y, si se pide, su BowTie o su Evaluación) para que la persona lo vea. |
+| `apurisk_bowtie_get`, `apurisk_bowtie_edit` | Leer y ampliar el BowTie de un riesgo (causas, consecuencias, barreras, peligro, evento tope). |
+| `apurisk_matrix_view`, `apurisk_matrix_select` | Manejar la Matriz de riesgos como con sus botones: perfil, escenario, filtros, orden, selección de celda o riesgo. |
+| `apurisk_windows`, `apurisk_refresh_windows` | Ver qué ventanas hay abiertas y pedirles que relean el libro. |
 | `apurisk_bridge` | Cualquier comando del puente de ApuRisk (evaluación, acciones…). |
 
 Todas operan sobre el **libro activo**; con varios Excel abiertos se indica `instance` (lo muestra `apurisk_status`).
