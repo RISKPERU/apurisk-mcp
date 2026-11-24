@@ -30,15 +30,15 @@ function Find-Python {
 
 try {
     Step 'Buscando Python 3.10 o superior'
-    $python = Find-Python
-    if (-not $python) {
+    $python = @(Find-Python)
+    if (-not $python[0]) {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-Host 'No se encontro Python. Instalando Python 3.12 con winget (solo para tu usuario)...'
             winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements | Out-Null
-            $python = Find-Python
+            $python = @(Find-Python)
         }
     }
-    if (-not $python) { throw 'No se encontro Python 3.10 o superior. Instalalo desde https://www.python.org/downloads/ (marca "Add python.exe to PATH") y vuelve a ejecutar este instalador.' }
+    if (-not $python[0]) { throw 'No se encontro Python 3.10 o superior. Instalalo desde https://www.python.org/downloads/ (marca "Add python.exe to PATH") y vuelve a ejecutar este instalador.' }
     Write-Host ('Python: ' + ($python -join ' '))
 
     Step "Copiando archivos a $InstallRoot"
@@ -78,8 +78,13 @@ try {
     } else {
         Step 'Registrando el servidor en Claude Code'
         if (Get-Command claude -ErrorAction SilentlyContinue) {
+            # "remove" escribe en stderr si el servidor no existe aun; con Stop eso abortaria el script.
+            $ErrorActionPreference = 'Continue'
             & claude mcp remove apurisk --scope user 2>&1 | Out-Null
-            & claude mcp add apurisk $server --scope user
+            & claude mcp add apurisk $server --scope user 2>&1 | Out-Host
+            $addCode = $LASTEXITCODE
+            $ErrorActionPreference = 'Stop'
+            $LASTEXITCODE = $addCode
             if ($LASTEXITCODE -eq 0) { $registered = $true } else { Write-Warning 'Claude Code no pudo registrar el servidor.' }
         } else {
             Write-Warning 'No se encontro el comando "claude" (Claude Code). Instalalo y vuelve a ejecutar este instalador.'

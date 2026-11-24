@@ -6,7 +6,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from . import automation, bowtie, excel, install_check, risks
+from . import analysis, automation, bowtie, excel, install_check, risks
 from .automation import ApuriskError
 
 mcp = FastMCP(
@@ -278,6 +278,43 @@ def apurisk_matrix_select(
     if not commands:
         raise ApuriskError("invalid_field", "Indica risk_id, probability e impact, o clear=true.")
     return _matrix(run, commands)
+
+
+@mcp.tool()
+def apurisk_risk_health(stale_days: int = 30, priority_only: bool = False, today: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Riesgos con información incompleta, sin responsable, con evaluación pendiente o sin actualizar hace más de «stale_days» días.
+
+    Devuelve, por riesgo, su nivel, responsable (con nombre), campos faltantes, última actividad y los problemas. «priority_only» deja solo los prioritarios
+    (nivel Extremo, Alto o Prioritaria). «today» (AAAA-MM-DD) fija la fecha de referencia; por omisión, hoy.
+    """
+    _, run, scope = _context(instance)
+    return analysis.risk_health(run, scope, stale_days=stale_days, priority_only=priority_only, today=today)
+
+
+@mcp.tool()
+def apurisk_risk_changes(scenario: str = "Current", only_changed: bool = True, instance: int | None = None) -> dict[str, Any]:
+    """Qué riesgos cambiaron desde la «última revisión» (la revisión confirmada anterior de su evaluación) y qué cambió: nivel, probabilidad o impacto por perspectiva.
+
+    scenario: Current (por omisión), Inherent, Residual o Potential. Incluye el estado actual de los controles (barreras del BowTie) de cada riesgo.
+    Los riesgos con una sola revisión se cuentan en «sinRevisionAnterior»: no hay con qué comparar.
+    """
+    _, run, scope = _context(instance)
+    return analysis.risk_changes(run, scope, scenario=scenario, only_changed=only_changed)
+
+
+@mcp.tool()
+def apurisk_actions_due(days: int = 7, today: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Acciones de respuesta abiertas que están vencidas o vencen en los próximos «days» días, con el riesgo asociado, el responsable (con nombre) y la fecha."""
+    _, run, scope = _context(instance)
+    return analysis.actions_due(run, scope, days=days, today=today)
+
+
+@mcp.tool()
+def apurisk_risk_dossier(risk_id: str, today: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Ficha completa de UN riesgo: datos, nivel por escenario, qué cambió desde la última revisión, controles, acciones abiertas, cuantificación,
+    y «informacionFaltante»: lo que falta en ApuRisk para sustentar una decisión sobre ese riesgo. Úsala antes de recomendar algo."""
+    _, run, scope = _context(instance)
+    return analysis.risk_dossier(run, scope, risk_id, today=today)
 
 
 @mcp.tool()

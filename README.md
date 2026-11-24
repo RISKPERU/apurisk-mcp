@@ -64,6 +64,10 @@ Copy-Item -Recurse skills\apurisk "$env:USERPROFILE\.claude\skills\apurisk"
 | `apurisk_bowtie_get`, `apurisk_bowtie_edit` | Leer y ampliar el BowTie de un riesgo (causas, consecuencias, barreras, peligro, evento tope). |
 | `apurisk_matrix_view`, `apurisk_matrix_select` | Manejar la Matriz de riesgos como con sus botones: perfil, escenario, filtros, orden, selección de celda o riesgo. |
 | `apurisk_windows`, `apurisk_refresh_windows` | Ver qué ventanas hay abiertas y pedirles que relean el libro. |
+| `apurisk_risk_health` | Riesgos incompletos, sin responsable, con evaluación pendiente o sin actualizar hace más de N días (con filtro de prioritarios). |
+| `apurisk_risk_changes` | Qué riesgos cambiaron desde la última revisión de su evaluación y qué cambió: nivel, probabilidad, impacto por perspectiva; estado de sus controles. |
+| `apurisk_actions_due` | Acciones vencidas o que vencen en los próximos N días, con riesgo, responsable (por nombre) y fecha. |
+| `apurisk_risk_dossier` | Ficha de un riesgo (niveles por escenario, cambios, controles, acciones, cuantificación) y la lista de información que falta para decidir. |
 | `apurisk_bridge` | Cualquier comando del puente de ApuRisk (evaluación, acciones…). |
 
 Todas operan sobre el **libro activo**; con varios Excel abiertos se indica `instance` (lo muestra `apurisk_status`).
