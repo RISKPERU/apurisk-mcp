@@ -67,3 +67,22 @@ Los errores traen un código estable (`conflict`, `invalid_transition`, `row_blo
 - Confirma antes de acciones que cambian muchos riesgos o estados; crear borradores uno a uno es seguro, publicar o cerrar en bloque no.
 - Si Excel responde `excel_busy`, hay una celda en edición o un cuadro de diálogo abierto: pídele a la persona que lo cierre.
 - No guardes ni cierres libros por tu cuenta.
+
+
+## Análisis del proyecto (consultas, no cambian nada)
+
+Para responder preguntas de seguimiento usa estas herramientas en lugar de armar el análisis a mano; cada una dice con qué criterio calcula y qué falta.
+
+| Pregunta | Herramienta |
+|---|---|
+| ¿Qué riesgos prioritarios están incompletos, sin responsable o sin actualizar? | `apurisk_risk_health(priority_only=True)` |
+| ¿Qué subió de nivel desde la última revisión, y por qué (probabilidad, impacto, controles)? | `apurisk_risk_changes` |
+| ¿Qué acciones están vencidas o vencen pronto? | `apurisk_actions_due(days=7)` |
+| Todo sobre un riesgo y qué información falta para decidir | `apurisk_risk_dossier(risk_id)` |
+
+- **«Prioritario»** = nivel actual Extremo, Alto o Prioritaria. **«Última revisión»** = la revisión confirmada anterior de la evaluación (Actual).
+- Los responsables vienen con su nombre (`m1`, `m2`… son ids). Cita a la persona por su nombre.
+- **Controles** = las barreras del BowTie: `Operational` (operativa), `Partial` (parcial), `Proposed` (solo propuesta). Si un control es solo propuesto, no lo cuentes como protección.
+- Un riesgo con **una sola revisión** no permite decir qué cambió: dilo, no lo supongas. Lo mismo con un riesgo sin evaluación Residual: no hay cuánto baja con las acciones.
+- Si una herramienta devuelve `informacionFaltante`, **inclúyelo en la respuesta**: es lo que la persona pide cuando pregunta «qué datos faltan».
+- «Fecha de referencia»: las herramientas usan la fecha de hoy; pásala en `today` (AAAA-MM-DD) solo si la persona la indica.
