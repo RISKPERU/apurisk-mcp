@@ -1,5 +1,10 @@
 # apurisk-mcp
 
+> **Piloto remoto para Claude en Excel:** el gateway HTTPS del VPS y el agente
+> Windows que opera el Excel local están implementados en esta rama. Véase
+> [despliegue en HestiaCP](docs/despliegue-hestia.md). El servidor local por
+> `stdio` descrito abajo sigue disponible.
+
 Servidor [MCP](https://modelcontextprotocol.io) para que Claude use el add-in **ApuRisk** dentro de Excel: encontrar un Excel abierto (o abrir un libro), comprobar si ApuRisk está instalado y cargado, registrar y consultar riesgos en el Registro del libro y abrir las ventanas de la cinta.
 
 Tiene tres piezas:
@@ -10,7 +15,7 @@ Tiene tres piezas:
 | Skill | `skills/apurisk/SKILL.md` | Enseña a Claude cómo funciona ApuRisk (vocabulario, flujo, prudencia). |
 | Puerta del add-in | add-in ApuRisk (`Automation/ApuriskAutomation.cs`) | Función oculta `APURISK_AUTOMATION` de Excel que ejecuta los servicios reales de ApuRisk. |
 
-El servidor **no escribe en las hojas por su cuenta**: pasa por el add-in, que aplica las validaciones, asigna los IDs (`R-001`…) y respeta la protección de las tablas. No abre puertos de red: habla con Excel por COM, dentro de tu sesión de Windows.
+El servidor **no escribe en las hojas por su cuenta**: pasa por el add-in, que aplica las validaciones, asigna los IDs (`R-001`…) y respeta la protección de las tablas. En el modo local por `stdio` no abre puertos de red: habla con Excel por COM, dentro de tu sesión de Windows.
 
 ## Requisitos
 
@@ -57,6 +62,10 @@ Copy-Item -Recurse skills\apurisk "$env:USERPROFILE\.claude\skills\apurisk"
 | `apurisk_open_workbook`, `apurisk_activate_workbook` | Abrir o activar un libro. |
 | `apurisk_load_addin` | Cargar ApuRisk en un Excel donde no esté cargado. |
 | `apurisk_list_windows`, `apurisk_open_window` | Ventanas y funciones de la cinta (Registro, BowTie, mapa de calor, simulación…). |
+| `apurisk_simulation_open`, `apurisk_simulation_view`, `apurisk_simulation_focus` | Abren Simulación, muestran sus cuatro pasos, releen el libro y enfocan un riesgo. |
+| `apurisk_simulation_configure`, `apurisk_simulation_risk`, `apurisk_simulation_correlation` | Ajustan muestreo, riesgos incluidos y correlaciones en la vista. |
+| `apurisk_simulation_run`, `apurisk_simulation_results` | Ejecutan y leen el resumen numérico de la última simulación: estadísticos y sensibilidad por riesgo. |
+| `apurisk_simulation_explore`, `apurisk_simulation_export` | Manejan objetivos, devuelven su probabilidad, muestran iteraciones y pulsan Exportar a Excel. |
 | `apurisk_create_register` | Crear las tablas del Registro en el libro activo. |
 | `apurisk_list_risks`, `apurisk_get_risk` | Consultar el Registro. |
 | `apurisk_create_risk`, `apurisk_update_risk`, `apurisk_set_risk_status` | Registrar y cambiar riesgos (siempre en borrador salvo que se pida publicar). |

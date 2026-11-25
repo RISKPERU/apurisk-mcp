@@ -6,7 +6,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from . import analysis, automation, bowtie, excel, install_check, risks
+from . import analysis, automation, bowtie, excel, install_check, risks, simulation
 from .automation import ApuriskError
 
 mcp = FastMCP(
@@ -76,6 +76,116 @@ def apurisk_list_windows(instance: int | None = None) -> list[str]:
 def apurisk_open_window(name: str, instance: int | None = None) -> str:
     """Abre una ventana o función de la cinta de ApuRisk (por ejemplo «RegistroRiesgos», «BowTie», «VerHeatMap», «Simular»). Ver apurisk_list_windows."""
     return automation.run_ribbon(excel.runner(excel.select_app(instance)), name)
+
+
+@mcp.tool()
+def apurisk_simulation_open(risk_id: str | None = None, run: bool = False, instance: int | None = None) -> dict[str, Any]:
+    """Abre la vista de Simulación del libro activo; opcionalmente enfoca un riesgo y solicita ejecutar al abrir."""
+    _, runner, scope = _context(instance)
+    if risk_id:
+        risks.get_risk(runner, scope, risk_id)
+    already_open = simulation.WINDOW in automation.open_windows(runner)
+    result = automation.bridge(runner, "simulation.open", {"riskId": risk_id, "run": run and not already_open})
+    if already_open and risk_id:
+        simulation.command(runner, "focusRisk", {"riskId": risk_id})
+    if run and already_open:
+        return {"window": simulation.WINDOW, "riskId": risk_id, "runRequested": True, "result": result,
+                "simulation": simulation.run_simulation(runner, scope, risk_id=risk_id)}
+    return {"window": simulation.WINDOW, "riskId": risk_id, "runRequested": run, "result": result}
+
+
+@mcp.tool()
+def apurisk_simulation_view(step: str, reload: bool = False, instance: int | None = None) -> dict[str, Any]:
+    """Muestra Riesgos, Correlaciones, Simulación o Resultados en la ventana abierta."""
+    if step not in ("riesgos", "correlaciones", "simulacion", "resultados"):
+        raise ApuriskError("invalid_step", "El paso debe ser riesgos, correlaciones, simulacion o resultados.")
+    _, runner, _ = _context(instance)
+    result = simulation.command(runner, "setStep", {"step": step})
+    if reload:
+        simulation.command(runner, "reload")
+    return result
+
+
+@mcp.tool()
+def apurisk_simulation_focus(risk_id: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Enfoca un riesgo en la vista; sin risk_id vuelve a mostrar todos los riesgos incluidos."""
+    _, runner, scope = _context(instance)
+    if risk_id:
+        risks.get_risk(runner, scope, risk_id)
+    return simulation.command(runner, "focusRisk", {"riskId": risk_id})
+
+
+@mcp.tool()
+def apurisk_simulation_configure(iterations: int | None = None, seed: int | None = None, method: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Cambia iteraciones, semilla y método (lhs o montecarlo) en la vista abierta."""
+    if iterations is not None and (not isinstance(iterations, int) or isinstance(iterations, bool) or not 1 <= iterations <= 100000):
+        raise ApuriskError("invalid_iterations", "Las iteraciones deben estar entre 1 y 100 000.")
+    if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool)):
+        raise ApuriskError("invalid_seed", "La semilla debe ser un número entero.")
+    if method is not None and method not in ("lhs", "montecarlo"):
+        raise ApuriskError("invalid_method", "El método debe ser lhs o montecarlo.")
+    _, runner, _ = _context(instance)
+    return simulation.command(runner, "configure", {"iterations": iterations, "seed": seed, "method": method})
+
+
+@mcp.tool()
+def apurisk_simulation_risk(risk_id: str, include: bool | None = None, probability_pct: float | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Incluye o excluye un riesgo y ajusta su probabilidad solo para la simulación."""
+    _, runner, scope = _context(instance)
+    risks.get_risk(runner, scope, risk_id)
+    if probability_pct is not None and not 0 <= probability_pct <= 100:
+        raise ApuriskError("invalid_probability", "La probabilidad debe estar entre 0 y 100.")
+    return simulation.command(runner, "setRisk", {"riskId": risk_id, "include": include, "probabilityPct": probability_pct})
+
+
+@mcp.tool()
+def apurisk_simulation_correlation(a: str, b: str, rho: float | None = None, remove: bool = False, instance: int | None = None) -> dict[str, Any]:
+    """Configura o quita una correlación entre entradas cost:R-001 o time:R-001."""
+    if a == b or (not remove and (rho is None or not -1 <= rho <= 1)):
+        raise ApuriskError("invalid_correlation", "Elige entradas distintas y un rho entre -1 y 1.")
+    _, runner, _ = _context(instance)
+    return simulation.command(runner, "removeCorrelation" if remove else "setCorrelation", {"a": a, "b": b, "rho": rho})
+
+
+@mcp.tool()
+def apurisk_simulation_run(iterations: int | None = None, seed: int | None = None, method: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Ejecuta la simulación en la vista abierta y devuelve su resumen cuando termina."""
+    _, runner, scope = _context(instance)
+    return simulation.run_simulation(runner, scope, iterations, seed, method)
+
+
+@mcp.tool()
+def apurisk_simulation_results(instance: int | None = None) -> dict[str, Any]:
+    """Consulta la última ejecución: media, percentiles, sensibilidad por riesgo y estado de exportación."""
+    _, runner, scope = _context(instance)
+    return simulation.state(runner, scope)
+
+
+@mcp.tool()
+def apurisk_simulation_explore(cost: float | None = None, time: float | None = None, bins: str | None = None, show_cdf: bool | None = None, iteration: int | None = None, jump: str | None = None, instance: int | None = None) -> dict[str, Any]:
+    """Ajusta objetivos, histograma o iteración explorada en la vista Resultados."""
+    if bins is not None and bins not in ("auto", "20", "40", "60", "100"):
+        raise ApuriskError("invalid_bins", "Las barras deben ser auto, 20, 40, 60 o 100.")
+    if jump is not None and jump not in ("min", "median", "max"):
+        raise ApuriskError("invalid_jump", "El caso debe ser min, median o max.")
+    if iteration is not None and (not isinstance(iteration, int) or isinstance(iteration, bool) or iteration < 0):
+        raise ApuriskError("invalid_iteration", "La iteración debe ser un índice entero mayor o igual a cero.")
+    _, runner, scope = _context(instance)
+    analysis_id = simulation.new_id() if cost is not None or time is not None else None
+    delivered = simulation.command(runner, "setTargets", {"cost": cost, "time": time, "bins": bins, "showCdf": show_cdf, "analysisId": analysis_id})
+    if iteration is not None or jump is not None:
+        simulation.command(runner, "setIteration", {"index": iteration, "jump": jump})
+    if analysis_id:
+        analyzed = simulation.wait_for(runner, scope, "result", "analysisId", analysis_id)
+        delivered["analysis"] = analyzed.get("analysis")
+    return delivered
+
+
+@mcp.tool()
+def apurisk_simulation_export(instance: int | None = None) -> dict[str, Any]:
+    """Pulsa Exportar a Excel en Resultados y devuelve los nombres de hojas creadas al terminar."""
+    _, runner, scope = _context(instance)
+    return simulation.export_simulation(runner, scope)
 
 
 @mcp.tool()

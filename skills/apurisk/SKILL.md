@@ -49,7 +49,11 @@ Las barreras nuevas quedan «Proposed» (propuestas); documentarlas, asignar res
 
 ## Abrir ventanas de la cinta
 
-`apurisk_list_windows` lista lo disponible y `apurisk_open_window(name)` lo abre en Excel (por ejemplo `RegistroRiesgos`, `BowTie`, `VerHeatMap`, `Simular`, `Dashboard`, `Wbs`, `Rbs`). Abrir una ventana la deja en pantalla para la persona; no devuelve datos.
+`apurisk_list_windows` lista lo disponible y `apurisk_open_window(name)` lo abre en Excel (por ejemplo `RegistroRiesgos`, `BowTie`, `VerHeatMap`, `Simular`, `Dashboard`, `Wbs`, `Rbs`). Abrir una ventana la deja en pantalla para la persona.
+
+## Simulación actual
+
+Usa `apurisk_simulation_open` para abrirla. Sus pasos son Riesgos, Correlaciones, Simulación y Resultados; `apurisk_simulation_view` navega entre ellos y puede releer el libro. `apurisk_simulation_focus` enfoca un riesgo o vuelve a todos. `apurisk_simulation_configure` ajusta iteraciones, semilla y método; `apurisk_simulation_risk` incluye riesgos o cambia su probabilidad solo en esta simulación; `apurisk_simulation_correlation` ajusta o quita correlaciones entre entradas `cost:R-001` y `time:R-001`. Ejecuta con `apurisk_simulation_run` y responde preguntas numéricas usando el resumen devuelto o `apurisk_simulation_results`, con medias, percentiles y sensibilidad por riesgo. `apurisk_simulation_explore` cambia los objetivos, histograma e iteración visible. `apurisk_simulation_export` pulsa el botón de la vista y crea hojas en el libro activo. El resumen MCP no incluye cada muestra ni imágenes de gráficos; esas se ven en la vista y en la exportación. Si la operación devuelve `pending`, consulta de nuevo el estado.
 
 ## Comandos avanzados
 

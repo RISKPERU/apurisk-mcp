@@ -1,0 +1,21 @@
+[Unit]
+Description=ApuRisk remote MCP pilot gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=apurisk
+Group=apurisk
+WorkingDirectory=/opt/apurisk-mcp
+EnvironmentFile=/etc/apurisk-mcp.env
+ExecStart=/opt/apurisk-mcp/.venv/bin/uvicorn apurisk_mcp.remote_app:app --host 127.0.0.1 --port 8765 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
