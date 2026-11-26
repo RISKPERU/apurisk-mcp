@@ -30,9 +30,20 @@ useradd --system --user-group --home /opt/apurisk-mcp --shell /usr/sbin/nologin 
 git clone https://github.com/RISKPERU/apurisk-mcp.git /opt/apurisk-mcp
 cd /opt/apurisk-mcp
 python3 -m venv .venv
-.venv/bin/pip install '.[remote]'
+.venv/bin/pip install -e '.[remote]'
 chown -R apurisk:apurisk /opt/apurisk-mcp
 ```
+
+La instalación es editable (`-e`): el servicio lee el código de la carpeta. Para
+actualizar basta con:
+
+```bash
+git config --global --add safe.directory /opt/apurisk-mcp   # una sola vez (la carpeta es de apurisk)
+cd /opt/apurisk-mcp && git pull && chown -R apurisk:apurisk /opt/apurisk-mcp && systemctl restart apurisk-mcp
+```
+
+Si cambian las herramientas, reiniciar también el agente de Windows y abrir una
+conversación nueva en Claude (guarda la lista de herramientas del conector).
 
 **Antes de clonar en el VPS**, publicar la rama que contiene este piloto o
 subir el ZIP de entrega y extraerlo en `/opt/apurisk-mcp`. `origin/main`
