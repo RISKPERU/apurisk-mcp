@@ -43,9 +43,14 @@ Generar **dos secretos diferentes** (por ejemplo, `openssl rand -hex 32`).
 Crear `/etc/apurisk-mcp.env` con permisos `0600`:
 
 ```ini
+APURISK_MCP_PUBLIC_HOST=mcp.TU-DOMINIO
 APURISK_MCP_CLIENT_TOKEN=REEMPLAZAR_CON_SECRETO_1
 APURISK_MCP_AGENT_TOKEN=REEMPLAZAR_CON_SECRETO_2
 ```
+
+`APURISK_MCP_PUBLIC_HOST` es el dominio sin `https://`. Es obligatorio: el SDK de
+MCP solo acepta `Host: localhost` por omisión y, detrás del proxy, respondería
+`421 Invalid Host header`.
 
 Copiar `deploy/apurisk-mcp.service.example` a
 `/etc/systemd/system/apurisk-mcp.service`, luego:

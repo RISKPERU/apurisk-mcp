@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -43,12 +44,21 @@ class Relay:
                 future.cancel()
 
 
-def create_app(client_token: str, agent_token: str):
+def create_app(client_token: str, agent_token: str, public_host: str | None = None):
     if min(len(client_token), len(agent_token)) < 32 or hmac.compare_digest(client_token, agent_token):
         raise ValueError("Configure dos tokens distintos de al menos 32 caracteres.")
 
     relay = Relay()
-    mcp = FastMCP("apurisk-remote", stateless_http=True, json_response=True)
+    # FastMCP solo acepta Host localhost por omisión (protección contra DNS rebinding): detrás del proxy de Hestia
+    # llega el dominio público, que hay que permitir de forma explícita o Claude recibe 421.
+    security = None
+    if public_host:
+        security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[public_host, f"{public_host}:*"],
+            allowed_origins=[f"https://{public_host}", "https://claude.ai"],
+        )
+    mcp = FastMCP("apurisk-remote", stateless_http=True, json_response=True, transport_security=security)
 
     @mcp.tool()
     async def apurisk_status() -> dict[str, Any]:
@@ -186,4 +196,7 @@ def create_app(client_token: str, agent_token: str):
 
 
 def from_environment():
-    return create_app(os.environ.get("APURISK_MCP_CLIENT_TOKEN", ""), os.environ.get("APURISK_MCP_AGENT_TOKEN", ""))
+    public_host = os.environ.get("APURISK_MCP_PUBLIC_HOST", "").strip().lower()
+    if not public_host or "/" in public_host:
+        raise ValueError("Configure APURISK_MCP_PUBLIC_HOST con el dominio público, por ejemplo mcp.tudominio.com (sin https://).")
+    return create_app(os.environ.get("APURISK_MCP_CLIENT_TOKEN", ""), os.environ.get("APURISK_MCP_AGENT_TOKEN", ""), public_host)

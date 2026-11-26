@@ -113,3 +113,27 @@ def test_remote_mcp_round_trip():
             await task
 
     asyncio.run(scenario())
+
+
+def _initialize(app, host):
+    from starlette.testclient import TestClient
+    token = "c" * 40
+    body = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}
+    with TestClient(app, base_url=f"https://{host}") as client:
+        return client.post("/mcp", json=body, headers={"Authorization": "Bearer " + token, "Accept": "application/json, text/event-stream"}).status_code
+
+
+def test_public_host_behind_the_proxy_is_accepted_and_others_are_not():
+    app = create_app("c" * 40, "a" * 40, "mcp.example.com")
+    assert _initialize(app, "mcp.example.com") == 200
+    assert _initialize(create_app("c" * 40, "a" * 40, "mcp.example.com"), "otro.example.com") == 421
+
+
+def test_environment_requires_the_public_host(monkeypatch):
+    import pytest
+    from apurisk_mcp.remote import from_environment
+    monkeypatch.setenv("APURISK_MCP_CLIENT_TOKEN", "c" * 40)
+    monkeypatch.setenv("APURISK_MCP_AGENT_TOKEN", "a" * 40)
+    monkeypatch.delenv("APURISK_MCP_PUBLIC_HOST", raising=False)
+    with pytest.raises(ValueError, match="APURISK_MCP_PUBLIC_HOST"):
+        from_environment()
