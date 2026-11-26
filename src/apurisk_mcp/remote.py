@@ -8,6 +8,7 @@ import os
 import time
 import uuid
 from typing import Any
+from urllib.parse import parse_qs
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -187,7 +188,13 @@ def create_app(client_token: str, agent_token: str, public_host: str | None = No
             return
         expected = agent_token if path.startswith("/agent/") else client_token
         header = next((value for key, value in scope.get("headers", []) if key.lower() == b"authorization"), b"")
-        if not hmac.compare_digest(header, ("Bearer " + expected).encode("utf-8")):
+        authorized = hmac.compare_digest(header, ("Bearer " + expected).encode("utf-8"))
+        # Los conectores personalizados de Claude no permiten cabeceras: la clave del cliente puede ir en la URL
+        # (`/mcp?key=...`). Solo para /mcp; el agente sigue usando la cabecera.
+        if not authorized and not path.startswith("/agent/"):
+            keys = parse_qs(scope.get("query_string", b"").decode("latin-1")).get("key", [])
+            authorized = len(keys) == 1 and hmac.compare_digest(keys[0].encode("utf-8"), client_token.encode("utf-8"))
+        if not authorized:
             await PlainTextResponse("Unauthorized", status_code=401)(scope, receive, send)
             return
         await (control if path.startswith("/agent/") else protocol)(scope, receive, send)

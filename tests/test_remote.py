@@ -137,3 +137,21 @@ def test_environment_requires_the_public_host(monkeypatch):
     monkeypatch.delenv("APURISK_MCP_PUBLIC_HOST", raising=False)
     with pytest.raises(ValueError, match="APURISK_MCP_PUBLIC_HOST"):
         from_environment()
+
+
+def _status(app, path):
+    from starlette.testclient import TestClient
+    body = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}
+    with TestClient(app, base_url="https://mcp.example.com") as client:
+        return client.post(path, json=body, headers={"Accept": "application/json, text/event-stream"}).status_code
+
+
+def test_client_key_in_the_url_works_for_mcp_only():
+    # Una app por petición: el gestor de sesiones de MCP solo arranca una vez por instancia.
+    app = lambda: create_app("c" * 40, "a" * 40, "mcp.example.com")
+    assert _status(app(), "/mcp?key=" + "c" * 40) == 200
+    assert _status(app(), "/mcp?key=" + "x" * 40) == 401
+    assert _status(app(), "/mcp") == 401
+    # El agente no acepta claves por URL, ni la suya ni la del cliente.
+    assert _status(app(), "/agent/result?key=" + "a" * 40) == 401
+    assert _status(app(), "/agent/result?key=" + "c" * 40) == 401

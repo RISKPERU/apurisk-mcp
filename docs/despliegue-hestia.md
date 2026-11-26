@@ -110,9 +110,12 @@ consola abierta para el piloto; el agente reintenta si se corta la red.
 
 ## 4. Claude en Excel
 
-En Claude, crear un conector personalizado con URL
-`https://mcp.TU-DOMINIO/mcp`. Usar la opción de autenticación mediante
-cabecera fija, con `Authorization: Bearer SECRETO_1`. En planes Team o
+En Claude Desktop (*Customize → Connectors → + → Add custom connector*), crear
+un conector con URL `https://mcp.TU-DOMINIO/mcp?key=SECRETO_1`. El formulario
+de Claude no admite cabeceras, así que la clave del cliente va en la URL (el
+gateway también acepta `Authorization: Bearer SECRETO_1`). La clave queda en
+la configuración del conector y en el log de acceso de Nginx: es aceptable
+para el piloto; en producción usar OAuth. En planes Team o
 Enterprise, el administrador debe añadir primero el conector a la
 organización. Activarlo en la conversación de Claude en Excel.
 
