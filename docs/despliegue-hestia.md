@@ -7,12 +7,11 @@ disponible sin cambios.
 
 ## Alcance del piloto
 
-Herramientas remotas: `apurisk_status`, `apurisk_list_risks`,
-`apurisk_get_risk`, `apurisk_bowtie_get`, `apurisk_select_risk` y las
-herramientas `apurisk_simulation_*` para controlar las cuatro vistas, ejecutar,
-consultar el resumen numérico y exportar a Excel. Se excluyen los comandos
-genéricos y las escrituras al Registro. La exportación sí crea hojas en el
-libro activo. Se requiere instalar también la versión del add-in con los
+Herramientas remotas: **las mismas que el MCP local** (`apurisk_*`), con sus
+nombres, parámetros y descripciones. El gateway las genera a partir de
+`apurisk_mcp.server` y el agente de Windows las ejecuta; una herramienta nueva
+en el MCP local aparece sola en el remoto. Incluye escrituras al Registro,
+ventanas de la cinta, Matriz, BowTie, Simulación y `apurisk_bridge`. Se requiere instalar también la versión del add-in con los
 comandos `simulation.result.*` y `simulation.export.status`; el motor y la
 exportación se ejecutan en la PC con Excel abierto. El gateway usa memoria de
 un solo proceso, un solo agente y **dos claves compartidas**. No usar la misma

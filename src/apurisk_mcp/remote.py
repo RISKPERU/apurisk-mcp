@@ -1,13 +1,15 @@
-"""Pilot remote MCP gateway. Excel access remains in the Windows agent."""
+"""Pilot remote MCP gateway. Excel access remains in the Windows agent; the tools mirror the local MCP."""
 
 from __future__ import annotations
 
 import asyncio
 import hmac
+import inspect
 import os
 import time
+import typing
 import uuid
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs
 
 from mcp.server.fastmcp import FastMCP
@@ -45,6 +47,30 @@ class Relay:
                 future.cancel()
 
 
+def local_tools() -> dict[str, Callable[..., Any]]:
+    """Herramientas `apurisk_*` del MCP local; el agente las ejecuta y el gateway publica las mismas."""
+    from . import server
+
+    return {name: function for name, function in inspect.getmembers(server, inspect.isfunction)
+            if name.startswith("apurisk_") and function.__module__ == server.__name__}
+
+
+def _relayed(relay: Relay, function: Callable[..., Any]) -> Callable[..., Any]:
+    """Copia la firma y la descripción de la herramienta local; al llamarla, la reenvía al agente de Windows."""
+    hints = typing.get_type_hints(function)
+    signature = inspect.signature(function)
+    parameters = [parameter.replace(annotation=hints.get(parameter.name, parameter.annotation)) for parameter in signature.parameters.values()]
+
+    async def call(**arguments: Any) -> Any:
+        return await relay.invoke(function.__name__, arguments)
+
+    call.__name__ = function.__name__
+    call.__doc__ = function.__doc__
+    call.__signature__ = signature.replace(parameters=parameters, return_annotation=hints.get("return", signature.return_annotation))
+    call.__annotations__ = hints
+    return call
+
+
 def create_app(client_token: str, agent_token: str, public_host: str | None = None):
     if min(len(client_token), len(agent_token)) < 32 or hmac.compare_digest(client_token, agent_token):
         raise ValueError("Configure dos tokens distintos de al menos 32 caracteres.")
@@ -61,82 +87,9 @@ def create_app(client_token: str, agent_token: str, public_host: str | None = No
         )
     mcp = FastMCP("apurisk-remote", stateless_http=True, json_response=True, transport_security=security)
 
-    @mcp.tool()
-    async def apurisk_status() -> dict[str, Any]:
-        """Comprueba el Excel abierto y el estado del add-in ApuRisk en la PC conectada."""
-        return await relay.invoke("apurisk_status", {})
-
-    @mcp.tool()
-    async def apurisk_list_risks(status: str | None = None, instance: int | None = None) -> list[dict[str, Any]]:
-        """Lista los riesgos del libro activo. Usa instance si hay varios Excel abiertos."""
-        return await relay.invoke("apurisk_list_risks", {"status": status, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_get_risk(risk_id: str, instance: int | None = None) -> dict[str, Any]:
-        """Consulta un riesgo del libro activo por su ID, por ejemplo R-001."""
-        return await relay.invoke("apurisk_get_risk", {"risk_id": risk_id, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_bowtie_get(risk_id: str, instance: int | None = None) -> dict[str, Any]:
-        """Consulta el BowTie de un riesgo del libro activo."""
-        return await relay.invoke("apurisk_bowtie_get", {"risk_id": risk_id, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_select_risk(risk_id: str, show: str | None = None, instance: int | None = None) -> str:
-        """Selecciona el riesgo en Excel; show puede ser bowtie o evaluate."""
-        if show not in (None, "bowtie", "evaluate"):
-            raise ValueError("show debe ser bowtie, evaluate o vacío.")
-        return await relay.invoke("apurisk_select_risk", {"risk_id": risk_id, "show": show, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_open(risk_id: str | None = None, run: bool = False, instance: int | None = None) -> dict[str, Any]:
-        """Abre la Simulación actual en Excel; opcionalmente enfoca un riesgo y la ejecuta."""
-        return await relay.invoke("apurisk_simulation_open", {"risk_id": risk_id, "run": run, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_view(step: str, reload: bool = False, instance: int | None = None) -> dict[str, Any]:
-        """Muestra riesgos, correlaciones, simulacion o resultados; reload relee el libro."""
-        return await relay.invoke("apurisk_simulation_view", {"step": step, "reload": reload, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_focus(risk_id: str | None = None, instance: int | None = None) -> dict[str, Any]:
-        """Enfoca un riesgo; sin risk_id vuelve a todos los incluidos."""
-        return await relay.invoke("apurisk_simulation_focus", {"risk_id": risk_id, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_configure(iterations: int | None = None, seed: int | None = None, method: str | None = None, instance: int | None = None) -> dict[str, Any]:
-        """Ajusta iteraciones, semilla y muestreo lhs o montecarlo en la vista."""
-        return await relay.invoke("apurisk_simulation_configure", {"iterations": iterations, "seed": seed, "method": method, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_risk(risk_id: str, include: bool | None = None, probability_pct: float | None = None, instance: int | None = None) -> dict[str, Any]:
-        """Incluye un riesgo y ajusta su probabilidad de ocurrencia en la simulación."""
-        return await relay.invoke("apurisk_simulation_risk", {"risk_id": risk_id, "include": include, "probability_pct": probability_pct, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_correlation(a: str, b: str, rho: float | None = None, remove: bool = False, instance: int | None = None) -> dict[str, Any]:
-        """Ajusta o quita correlación entre cost:R-001 y time:R-001."""
-        return await relay.invoke("apurisk_simulation_correlation", {"a": a, "b": b, "rho": rho, "remove": remove, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_run(iterations: int | None = None, seed: int | None = None, method: str | None = None, instance: int | None = None) -> dict[str, Any]:
-        """Ejecuta la vista actual y devuelve medias, percentiles y sensibilidad por riesgo."""
-        return await relay.invoke("apurisk_simulation_run", {"iterations": iterations, "seed": seed, "method": method, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_results(instance: int | None = None) -> dict[str, Any]:
-        """Lee el resumen de la última simulación y el estado de su exportación."""
-        return await relay.invoke("apurisk_simulation_results", {"instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_explore(cost: float | None = None, time: float | None = None, bins: str | None = None, show_cdf: bool | None = None, iteration: int | None = None, jump: str | None = None, instance: int | None = None) -> dict[str, Any]:
-        """Cambia objetivos de costo/duración, histograma y caso explorado en Resultados."""
-        return await relay.invoke("apurisk_simulation_explore", {"cost": cost, "time": time, "bins": bins, "show_cdf": show_cdf, "iteration": iteration, "jump": jump, "instance": instance})
-
-    @mcp.tool()
-    async def apurisk_simulation_export(instance: int | None = None) -> dict[str, Any]:
-        """Pulsa Exportar a Excel en Resultados y confirma las hojas creadas."""
-        return await relay.invoke("apurisk_simulation_export", {"instance": instance})
+    # Las mismas herramientas que el MCP local (nombre, parámetros y descripción): el VPS solo las reenvía al agente.
+    for function in local_tools().values():
+        mcp.add_tool(_relayed(relay, function))
 
     async def health(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "agentConnected": time.monotonic() - relay.last_seen <= 45})

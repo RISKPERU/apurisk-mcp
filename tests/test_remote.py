@@ -11,6 +11,7 @@ from mcp.client.streamable_http import streamable_http_client
 from apurisk_mcp.local_agent import execute
 from apurisk_mcp.remote import create_app
 from apurisk_mcp import server, simulation
+from apurisk_mcp import server as server_module
 
 
 def test_simulation_open_uses_addin_bridge(monkeypatch):
@@ -26,7 +27,7 @@ def test_simulation_open_uses_addin_bridge(monkeypatch):
 
 
 def test_agent_rejects_unknown_operation():
-    reply = execute({"id": "1", "operation": "apurisk_bridge", "arguments": {}})
+    reply = execute({"id": "1", "operation": "apurisk_no_existe", "arguments": {}})
     assert reply["id"] == "1"
     assert "error" in reply
 
@@ -102,7 +103,13 @@ def test_remote_mcp_round_trip():
                         assert {"apurisk_simulation_view", "apurisk_simulation_focus", "apurisk_simulation_configure", "apurisk_simulation_risk",
                                 "apurisk_simulation_correlation", "apurisk_simulation_run", "apurisk_simulation_results",
                                 "apurisk_simulation_explore", "apurisk_simulation_export"} <= names
-                        assert "apurisk_bridge" not in names
+                        # El remoto publica exactamente las herramientas del MCP local, con sus mismos parámetros.
+                        local = {tool.name: tool for tool in await server_module.mcp.list_tools()}
+                        assert names == set(local)
+                        remote = {tool.name: tool for tool in (await session.list_tools()).tools}
+                        for name in ("apurisk_open_window", "apurisk_matrix_view", "apurisk_create_risk", "apurisk_bridge"):
+                            assert remote[name].inputSchema == local[name].inputSchema
+                            assert remote[name].description == local[name].description
                         result = await session.call_tool("apurisk_status", {})
                         assert "Piloto.xlsx" in str(result)
                         result = await session.call_tool("apurisk_simulation_results", {})

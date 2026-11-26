@@ -8,26 +8,11 @@ from typing import Any
 
 import httpx
 
-from . import server
+from .remote import local_tools
 
 
-OPERATIONS = {
-    "apurisk_status": server.apurisk_status,
-    "apurisk_list_risks": server.apurisk_list_risks,
-    "apurisk_get_risk": server.apurisk_get_risk,
-    "apurisk_bowtie_get": server.apurisk_bowtie_get,
-    "apurisk_select_risk": server.apurisk_select_risk,
-    "apurisk_simulation_open": server.apurisk_simulation_open,
-    "apurisk_simulation_view": server.apurisk_simulation_view,
-    "apurisk_simulation_focus": server.apurisk_simulation_focus,
-    "apurisk_simulation_configure": server.apurisk_simulation_configure,
-    "apurisk_simulation_risk": server.apurisk_simulation_risk,
-    "apurisk_simulation_correlation": server.apurisk_simulation_correlation,
-    "apurisk_simulation_run": server.apurisk_simulation_run,
-    "apurisk_simulation_results": server.apurisk_simulation_results,
-    "apurisk_simulation_explore": server.apurisk_simulation_explore,
-    "apurisk_simulation_export": server.apurisk_simulation_export,
-}
+# Todas las herramientas del MCP local: las mismas que publica el gateway remoto.
+OPERATIONS = local_tools()
 
 
 def execute(job: dict[str, Any]) -> dict[str, Any]:
