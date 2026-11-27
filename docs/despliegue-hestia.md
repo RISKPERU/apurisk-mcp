@@ -101,9 +101,26 @@ El último comando debe devolver `401`. También `/agent/next` debe devolver
 
 En la PC debe estar Excel de escritorio, el add-in ApuRisk con la puerta
 `APURISK_AUTOMATION` y los comandos de resultados de Simulación, y un libro de
-prueba abierto. Instalar este repositorio
-con Python 3.10+ y ejecutar en PowerShell (preferir variables de entorno
-protegidas por el usuario; los valores de abajo son marcadores):
+prueba abierto.
+
+**Instalación con un clic (recomendada).** Copiar este repositorio a la PC y
+hacer doble clic en **`Instalar-Agente-Remoto.cmd`**. El instalador:
+
+- instala Python si falta (winget) y el MCP en `%LOCALAPPDATA%\ApuriskMcp`;
+- pide la URL del servidor y la **clave del agente** (`AGENT_TOKEN`, no la del
+  cliente) y las guarda en variables de entorno del usuario de Windows;
+- arranca el agente con `pythonw.exe`, **sin ventana**, y lo añade al inicio de
+  sesión de Windows;
+- deja en el escritorio *Iniciar agente ApuRisk* y *Detener agente ApuRisk*.
+
+El agente escribe en `%LOCALAPPDATA%\ApuriskMcp\agente.log` y no deja correr
+dos copias en la misma sesión. Para actualizarlo o cambiar la clave, volver a
+ejecutar el instalador (Enter mantiene la clave actual). Para quitarlo:
+`Instalar-Agente-Remoto.cmd -Uninstall`. **Un solo agente a la vez:** si hay
+otra PC con el agente encendido, detenerlo, porque ambas se repartirían las
+solicitudes.
+
+**Manual, en una consola visible** (para depurar; los valores son marcadores):
 
 ```powershell
 python -m venv .venv
@@ -115,8 +132,9 @@ $env:APURISK_MCP_AGENT_TOKEN = 'REEMPLAZAR_CON_SECRETO_2'
 
 El agente debe ejecutarse **en la sesión interactiva del mismo usuario de
 Windows que tiene Excel abierto**. No instalarlo como servicio del sistema:
-un servicio en otra sesión no encontrará ese Excel por COM. Mantener la
-consola abierta para el piloto; el agente reintenta si se corta la red.
+un servicio en otra sesión no encontrará ese Excel por COM (por eso el
+instalador usa el inicio de sesión y no un servicio). El agente reintenta solo
+si se corta la red.
 
 ## 4. Claude en Excel
 
